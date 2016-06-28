@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+    /* set the CSS */
+    
+    body {
+        font: 12px Arial;
+    }
+    
+    path {
+        stroke: steelblue;
+        stroke-width: 2;
+        fill: none;
+    }
+    
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: grey;
+        stroke-width: 1;
+        shape-rendering: crispEdges;
+    }
+    
+    div.tooltip {
+        position: absolute;
+        text-align: center;
+        width: 60px;
+        height: 28px;
+        padding: 2px;
+        font: 12px sans-serif;
+        background: lightsteelblue;
+        border: 0px;
+        border-radius: 8px;
+    }
+    
+    .grid .tick {
+        stroke: lightgrey;
+        stroke-opacity: 0.7;
+        shape-rendering: crispEdges;
+    }
+    
+    .grid ath {
+        stroke-width: 0;
+    }
+</style>
+
+<body>
+    <div>
+        <p>
+            <h1> Line Graph of Wifi/Data Usage in May (in MB) </h1>
+        </p>
+        <p>
+            <h2> Sally Hong - 209 </h2>
+        </p>
+    </div>
+
+    <!-- Add Buttons -->
+    <div id="option">
+        <input name="mobile" type="button" value="Mobile" onclick="updateMobile()" />
+        <input name="wifi" type="button" value="Wifi" onclick="updateWifi()" />
+    </div>
+
+
+    <!-- load the d3.js library -->
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+
+    <script>
+        // Set the dimensions of the canvas / graph
+        var margin = {
+                top: 30,
+                right: 50,
+                bottom: 80,
+                left: 50
+            },
+            width = 800 - margin.left - margin.right,
+            height = 400 - margin.top - margin.bottom;
+
+        // Parse the date / time
+        var parseDate = d3.time.format("%d-%b-%y").parse;
+        var formatTime = d3.time.format("%b-%d"); // Format tooltip date / time
+
+        // Set the ranges
+        var x = d3.time.scale().range([0, width]);
+        var y = d3.scale.linear().range([height, 0]);
+
+        // Define the axes
+        var xAxis = d3.svg.axis().scale(x)
+            .orient("bottom").tickFormat(d3.time.format("%a-%d")).ticks(31);
+
+        var yAxis = d3.svg.axis().scale(y)
+            .orient("left");
+
+        // Define the line
+        var valueline = d3.svg.line()
+            .x(function (d) {
+                return x(d.date);
+            })
+            .y(function (d) {
+                return y(d.usage);
+            });
+
+        // Div for tooltip
+        var div = d3.select("body")
+            .append("div") // declare the tooltip div 
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Adds the svg canvas
+        var svg = d3.select("body")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform",
+                "translate(" + margin.left + "," + margin.top + ")");
+
+        // Defining grid line functions
+        function make_x_axis() {
+            return d3.svg.axis()
+                .scale(x)
+                .orient("bottom")
+                .ticks(31)
+        }
+
+        function make_y_axis() {
+            return d3.svg.axis()
+                .scale(y)
+                .orient("left")
+                .ticks(5)
+        }
+
+        // Get the data
+        d3.csv("data-mobile.csv", function (error, data) {
+            data.forEach(function (d) {
+                d.date = parseDate(d.date);
+                d.usage = +d.usage;
+            });
+
+            // Scale the range of the data
+            x.domain(d3.extent(data, function (d) {
+                return d.date;
+            }));
+            y.domain([0, d3.max(data, function (d) {
+                return d.usage;
+            })]);
+
+            // Add the valueline path.
+            svg.append("path")
+                .attr("class", "line")
+                .attr("d", valueline(data));
+
+            // draw the scatterplot
+            svg.selectAll("circle")
+                .data(data)
+                .enter()
+				.append("circle")
+                .attr("r", 3)
+				.style("fill", "black")
+				.attr("cx", function (d) {
+                    return x(d.date);
+                })
+                .attr("cy", function (d) {
+                    return y(d.usage);
+                })
+                // Tooltip stuff after this
+                .on("mouseover", function (d) {
+                    div.transition()
+                        .style("opacity", 0);
+                    div.transition()
+                        .duration(700)
+                        .style("opacity", .9);
+                    div.html(
+                            formatTime(d.date) +
+                            "<br/>" + d.usage + " MB")
+                        .style("left", (d3.event.pageX) + "px")
+                        .style("top", (d3.event.pageY - 28) + "px")
+				});
+                
+
+            // Add the X Axis
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xAxis)
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-65)");
+            // Text label for x-axis
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 5)
+                .style("text-anchor", "middle")
+                .text("Date/Day in May")
+                .style("font-size", "16px");
+
+            // Add the Y Axis
+            svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis)
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 6)
+                .attr("dy", ".71em")
+                .style("text-anchor", "end")
+                .text("Data Usage (in MB)");
+
+
+            // Add gridlines
+            svg.append("g")
+                .attr("class", "grid")
+                .attr("transform", "translate(0," + height + ")")
+                .call(make_x_axis()
+                    .tickSize(-height, 0, 0)
+                    .tickFormat("")
+                )
+            svg.append("g")
+                .attr("class", "grid")
+                .call(make_y_axis()
+                    .tickSize(-width, 0, 0)
+                    .tickFormat("")
+                )
+        });
+
+
+        // Function for Mobile data
+        function updateMobile() {
+            d3.csv("data-mobile.csv", function (error, data) {
+                data.forEach(function (d) {
+                    d.date = parseDate(d.date);
+                    d.usage = +d.usage;
+                });
+
+                x.domain(d3.extent(data, function (d) {
+                    return d.date;
+                }));
+                y.domain([0, d3.max(data, function (d) {
+                    return d.usage;
+                })]);
+
+                var svg = d3.select("body")
+                var change = svg.selectAll("circle").data(data)
+					
+                svg.select(".line")
+                    .transition()
+					.duration(750)
+                    .attr("d", valueline(data))
+                    .style("stroke", "steelblue");
+
+                svg.select(".x.axis")
+                    .transition()
+					.duration(750)
+                    .call(xAxis)
+                    .selectAll("text")
+                    .style("text-anchor", "end")
+                    .attr("dx", "-.8em")
+                    .attr("dy", ".15em")
+                    .attr("transform", "rotate(-65)");
+
+                svg.selectAll(".y.axis")
+                    .transition()
+					.duration(750)
+                    .call(yAxis);
+									
+				change.transition()
+					.duration(750)
+					.attr("cx", function (d) { return x(d.date); })
+                    .attr("cy", function (d) { return y(d.usage); })
+										
+				change.enter()
+					.append("circle")
+					.attr("r", 3)
+					.style("fill", "black")
+					.attr("cx", function (d) { return x(d.date); })
+                    .attr("cy", function (d) { return y(d.usage); })
+				
+				change.exit().remove()					
+            });
+        }
+
+
+        function updateWifi() {
+            d3.csv("data-wifi.csv", function (error, data) {
+                data.forEach(function (d) {
+                    d.date = parseDate(d.date);
+                    d.usage = +d.usage;
+                });
+
+                x.domain(d3.extent(data, function (d) {
+                    return d.date;
+                }));
+                y.domain([0, d3.max(data, function (d) {
+                    return d.usage;
+                })]);
+
+                var svg = d3.select("body")
+                var change = svg.selectAll("circle").data(data)
+					
+                svg.select(".line")
+                    .transition()
+					.duration(750)
+                    .attr("d", valueline(data))
+                    .style("stroke", "red");
+
+                svg.select(".x.axis")
+                    .transition()
+					.duration(750)
+                    .call(xAxis)
+                    .selectAll("text")
+                    .style("text-anchor", "end")
+                    .attr("dx", "-.8em")
+                    .attr("dy", ".15em")
+                    .attr("transform", "rotate(-65)");
+
+                svg.selectAll(".y.axis")
+                    .transition()
+					.duration(750)
+                    .call(yAxis);
+									
+				change.transition()
+					.duration(750)
+					.attr("cx", function (d) { return x(d.date); })
+                    .attr("cy", function (d) { return y(d.usage); })
+										
+				change.enter()
+					.append("circle")
+					.attr("r", 3)
+					.attr("cx", function (d) { return x(d.date); })
+                    .attr("cy", function (d) { return y(d.usage); })
+				
+				change.exit().remove()					
+            });
+        }
+    </script>
+</body>
